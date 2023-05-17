@@ -17,10 +17,22 @@ option(BUILD_EXAMPLES "Build examples" ON)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
+unset(SPNG_CUSTOM_ZLIB_TARGET CACHE)
+set(SPNG_DEPENDENCIES "")
+set(SPNG_USE_MINIZ OFF)
+
 if(NOT CMAKE_HOST_WIN32)
-    set(MATH_LIBRARY "m")
+    set(SPNG_DEPENDENCIES "m")
+endif()
+
+if(DEFINED SPNG_CUSTOM_ZLIB_TARGET)
+    set(SPNG_DEPENDENCIES ${SPNG_DEPENDENCIES} ${SPNG_CUSTOM_ZLIB_TARGET})
+    if(${SPNG_CUSTOM_ZLIB_TARGET} MATCHES "[Mm][Ii][Nn][Ii][Zz]")
+        set(SPNG_USE_MINIZ ON)
+    endif()
 else()
-    set(MATH_LIBRARY "")
+    find_package(ZLIB REQUIRED)
+    set(SPNG_DEPENDENCIES ${SPNG_DEPENDENCIES} ZLIB::ZLIB)
 endif()
 
 if(NOT ENABLE_OPT)
@@ -47,14 +59,15 @@ if(SPNG_STATIC)
     list(APPEND spng_TARGETS spng_static)
 endif()
 
-find_package(ZLIB REQUIRED)
 foreach(spng_TARGET ${spng_TARGETS})
     target_include_directories(${spng_TARGET} PUBLIC
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/spng>
       $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     )
-    target_link_libraries(${spng_TARGET} PRIVATE ZLIB::ZLIB)
-    target_link_libraries(${spng_TARGET} PRIVATE ${MATH_LIBRARY})
+    target_link_libraries(${spng_TARGET} PRIVATE ${SPNG_DEPENDENCIES})
+    if(SPNG_USE_MINIZ)
+        target_compile_definitions(${spng_TARGET} PUBLIC SPNG_USE_MINIZ)
+    endif()
 endforeach()
 
 set(project_config "${CMAKE_CURRENT_BINARY_DIR}/SPNGConfig.cmake")
